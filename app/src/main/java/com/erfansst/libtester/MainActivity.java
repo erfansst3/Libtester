@@ -25,7 +25,7 @@ public final class MainActivity extends Activity{
         Button maps=new Button(this);
         maps.setText("Test /proc/PID/maps");
         box.addView(maps);
-        maps.setOnClickListener(v->out.setText(nativeTest(mapsPath,"all")));
+        maps.setOnClickListener(v->out.setText(nativeTest(mapsPath,"maps")));
         String[] n={"libc openat","libc open","direct syscall openat","direct syscall openat2","fopen","pread","mmap","ioctl","system cat","execve cat","Root / UID","Run all"};
         for(String x:n){
             Button q=new Button(this);
