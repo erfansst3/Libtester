@@ -41,7 +41,7 @@ public final class MainActivity extends Activity{
     }
     String cmd(String c){
         try{
-            Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
+            java.lang.Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
             BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
             BufferedReader e=new BufferedReader(new InputStreamReader(p.getErrorStream()));
             StringBuilder z=new StringBuilder(),b=new StringBuilder(),x;
