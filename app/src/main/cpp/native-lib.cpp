@@ -5,11 +5,13 @@
 #include <cstdio>
 #include <fcntl.h>
 #include <string>
+#include <cstdlib>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 static std::string read_fd(int fd) {
     if (fd < 0) return "fd=-1 errno=" + std::to_string(errno);
@@ -115,6 +117,69 @@ static std::string mmap_test(const char* p) {
     return s;
 }
 
+static std::string capture_execve(const char* p) {
+    int pipefd[2];
+    if (pipe(pipefd) != 0) return "execve: pipe errno=" + std::to_string(errno);
+    pid_t pid = fork();
+    if (pid < 0) {
+        int e = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return "execve: fork errno=" + std::to_string(e);
+    }
+    if (pid == 0) {
+        dup2(pipefd[1], STDOUT_FILENO);
+        dup2(pipefd[1], STDERR_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        char* const argv[] = {(char*)"cat", (char*)p, nullptr};
+        char* const envp[] = {(char*)"PATH=/system/bin:/system/xbin", nullptr};
+        execve("/system/bin/cat", argv, envp);
+        _exit(127);
+    }
+    close(pipefd[1]);
+    char b[4096];
+    std::string out;
+    ssize_t n;
+    while ((n = read(pipefd[0], b, sizeof(b))) > 0) out.append(b, n);
+    close(pipefd[0]);
+    int st = 0;
+    waitpid(pid, &st, 0);
+    int code = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+    return "EXECVE /system/bin/cat: exit=" + std::to_string(code) + "\n" + out;
+}
+
+static std::string capture_system_cat(const char* p) {
+    int pipefd[2];
+    if (pipe(pipefd) != 0) return "system: pipe errno=" + std::to_string(errno);
+    pid_t pid = fork();
+    if (pid < 0) {
+        int e = errno;
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return "system: fork errno=" + std::to_string(e);
+    }
+    if (pid == 0) {
+        dup2(pipefd[1], STDOUT_FILENO);
+        dup2(pipefd[1], STDERR_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        std::string cmd = "cat '" + std::string(p) + "'";
+        int r = system(cmd.c_str());
+        _exit(r == -1 ? 127 : (WIFEXITED(r) ? WEXITSTATUS(r) : 128));
+    }
+    close(pipefd[1]);
+    char b[4096];
+    std::string out;
+    ssize_t n;
+    while ((n = read(pipefd[0], b, sizeof(b))) > 0) out.append(b, n);
+    close(pipefd[0]);
+    int st = 0;
+    waitpid(pid, &st, 0);
+    int code = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+    return "SYSTEM cat: exit=" + std::to_string(code) + "\n" + out;
+}
+
 static std::string ioctl_test(const char* p) {
     int fd = openat(AT_FDCWD, p, O_RDONLY | O_CLOEXEC);
     if (fd < 0) return "ioctl: open errno=" + std::to_string(errno);
@@ -136,13 +201,15 @@ static std::string runOne(const char* p, const char* mode) {
     if (strcmp(mode, "pread") == 0) return pread_test(p);
     if (strcmp(mode, "mmap") == 0) return mmap_test(p);
     if (strcmp(mode, "ioctl") == 0) return ioctl_test(p);
+    if (strcmp(mode, "system cat") == 0) return capture_system_cat(p);
+    if (strcmp(mode, "execve cat") == 0) return capture_execve(p);
     return "Unknown test: " + std::string(mode);
 }
 
 static std::string runAll(const char* p) {
     const char* modes[] = {
         "libc openat", "libc open", "direct syscall openat",
-        "direct syscall openat2", "fopen", "pread", "mmap", "ioctl"
+        "direct syscall openat2", "fopen", "pread", "mmap", "ioctl", "system cat", "execve cat"
     };
     std::string out = "PID=" + std::to_string(getpid()) + "\nPATH=" + p + "\n\n";
     for (const char* m : modes) {
