@@ -207,6 +207,31 @@ static std::string runOne(const char* p, const char* mode) {
     return "Unknown test: " + std::string(mode);
 }
 
+static std::string native_cmd(const char* c) {
+    FILE* f = popen(c, "r");
+    if (!f) return std::string(c) + " [popen errno=" + std::to_string(errno) + "]";
+    char b[4096];
+    std::string out;
+    size_t n;
+    while ((n = fread(b, 1, sizeof(b), f)) > 0) out.append(b, n);
+    int r = pclose(f);
+    return std::string(c) + " [status=" + std::to_string(r) + "]\n" + out;
+}
+
+static std::string root_test() {
+    std::string out = "=== ROOT / UID (NATIVE) ===\n";
+    out += native_cmd("which su");
+    out += "\n";
+    out += native_cmd("id");
+    out += "\n";
+    out += native_cmd("id -u");
+    out += "\nPROCESS_UID=" + std::to_string(getuid());
+    out += "\nPROCESS_GID=" + std::to_string(getgid());
+    out += "\n";
+    out += native_cmd("su -c id");
+    return out;
+}
+
 static std::string runMaps(const char* p) {
     const char* modes[] = {
         "libc openat", "libc open",
@@ -252,6 +277,7 @@ Java_com_erfansst_libtester_MainActivity_nativeTest(
     std::string s;
     if (strcmp(m, "all") == 0) s = runAll(p);
     else if (strcmp(m, "maps") == 0) s = runMaps(p);
+    else if (strcmp(m, "root") == 0) s = root_test();
     else s = runOne(p, m);
 
     env->ReleaseStringUTFChars(jp, p);
