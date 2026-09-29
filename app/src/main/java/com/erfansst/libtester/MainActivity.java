@@ -20,7 +20,7 @@ public final class MainActivity extends Activity{
         box.addView(t);
         out=new TextView(this);
         out.setTextSize(12);
-        String[] n={"libc openat","libc open","direct syscall openat","direct syscall openat2","fopen","pread","mmap","ioctl","Root / UID","Run all"};
+        String[] n={"libc openat","libc open","direct syscall openat","direct syscall openat2","fopen","pread","mmap","ioctl","Root / UID","cat via cmd","Run all"};
         for(String x:n){
             Button q=new Button(this);
             q.setText(x);
@@ -28,6 +28,7 @@ public final class MainActivity extends Activity{
             q.setOnClickListener(v->{
                 if("Run all".equals(x))out.setText(nativeTest(path,"all")+"\n\n"+rootTest());
                 else if("Root / UID".equals(x))out.setText(rootTest());
+                else if("cat via cmd".equals(x))out.setText(catCmd());
                 else out.append("\n>>> "+x+"\n"+nativeTest(path,x)+"\n");
             });
         }
@@ -35,6 +36,9 @@ public final class MainActivity extends Activity{
         ScrollView s=new ScrollView(this);
         s.addView(box);
         setContentView(s);
+    }
+    String catCmd(){
+        return "=== CMD CAT ===\n"+cmd("cat "+path);
     }
     String rootTest(){
         return "=== ROOT / UID ===\n"+cmd("which su")+"\n"+cmd("id")+"\n"+cmd("id -u")+"\nPROCESS_UID="+Process.myUid()+"\nSU_ID="+cmd("su -c id");
