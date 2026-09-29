@@ -32,8 +32,8 @@ public final class MainActivity extends Activity{
             q.setText(x);
             box.addView(q);
             q.setOnClickListener(v->{
-                if("Run all".equals(x))out.setText(nativeTest(path,"all")+"\n\n"+rootTest());
-                else if("Root / UID".equals(x))out.setText(rootTest());
+                if("Run all".equals(x))out.setText(nativeTest(path,"all")+"\n\n"+nativeTest(path,"root"));
+                else if("Root / UID".equals(x))out.setText(nativeTest(path,"root"));
                 else out.append("\n>>> "+x+"\n"+nativeTest(path,x)+"\n");
             });
         }
@@ -41,25 +41,6 @@ public final class MainActivity extends Activity{
         ScrollView s=new ScrollView(this);
         s.addView(box);
         setContentView(s);
-    }
-    String catCmd(){
-        return "=== CMD CAT ===\n"+cmd("cat "+path);
-    }
-    String rootTest(){
-        return "=== ROOT / UID ===\n"+cmd("which su")+"\n"+cmd("id")+"\n"+cmd("id -u")+"\nPROCESS_UID="+Process.myUid()+"\nSU_ID="+cmd("su -c id");
-    }
-    String cmd(String c){
-        try{
-            java.lang.Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
-            BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
-            BufferedReader e=new BufferedReader(new InputStreamReader(p.getErrorStream()));
-            StringBuilder z=new StringBuilder(),bb=new StringBuilder();
-            String x;
-            while((x=r.readLine())!=null)z.append(x).append('\n');
-            while((x=e.readLine())!=null)bb.append(x).append('\n');
-            int n=p.waitFor();
-            return c+" [exit="+n+"]\n"+(z.length()>0?z:bb).toString().trim();
-        }catch(Throwable e){return c+" [error="+e.getClass().getSimpleName()+"]";}
     }
     static native String nativeTest(String p,String m);
     static{try{System.loadLibrary("tester");}catch(Throwable ignored){}}
