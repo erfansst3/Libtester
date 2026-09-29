@@ -6,20 +6,26 @@ import android.os.Process;
 import android.widget.*;
 import java.io.*;
 
-public final class MainActivity extends Activity{
+public final class MainActivity{
     TextView out;
     String path;
+    String mapsPath;
     public void onCreate(Bundle b){
         super.onCreate(b);
         path="/proc/"+Process.myPid()+"/kossher";
+        mapsPath="/proc/"+Process.myPid()+"/maps";
         LinearLayout box=new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(20,20,20,20);
         TextView t=new TextView(this);
-        t.setText("Native /proc tester\n"+path);
+        t.setText("Native /proc tester\nKOSSHER: "+path+"\nMAPS: "+mapsPath);
         box.addView(t);
         out=new TextView(this);
         out.setTextSize(12);
+        Button maps=new Button(this);
+        maps.setText("Test /proc/PID/maps");
+        box.addView(maps);
+        maps.setOnClickListener(v->out.setText(nativeTest(mapsPath,"all")));
         String[] n={"libc openat","libc open","direct syscall openat","direct syscall openat2","fopen","pread","mmap","ioctl","system cat","execve cat","Root / UID","Run all"};
         for(String x:n){
             Button q=new Button(this);
@@ -47,12 +53,12 @@ public final class MainActivity extends Activity{
             java.lang.Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
             BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
             BufferedReader e=new BufferedReader(new InputStreamReader(p.getErrorStream()));
-            StringBuilder z=new StringBuilder(),b=new StringBuilder();
+            StringBuilder z=new StringBuilder(),bb=new StringBuilder();
             String x;
             while((x=r.readLine())!=null)z.append(x).append('\n');
-            while((x=e.readLine())!=null)b.append(x).append('\n');
+            while((x=e.readLine())!=null)bb.append(x).append('\n');
             int n=p.waitFor();
-            return c+" [exit="+n+"]\n"+(z.length()>0?z:b).toString().trim();
+            return c+" [exit="+n+"]\n"+(z.length()>0?z:bb).toString().trim();
         }catch(Throwable e){return c+" [error="+e.getClass().getSimpleName()+"]";}
     }
     static native String nativeTest(String p,String m);
