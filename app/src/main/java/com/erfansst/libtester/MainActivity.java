@@ -44,7 +44,8 @@ public final class MainActivity extends Activity{
             java.lang.Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
             BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
             BufferedReader e=new BufferedReader(new InputStreamReader(p.getErrorStream()));
-            StringBuilder z=new StringBuilder(),b=new StringBuilder(),x;
+            StringBuilder z=new StringBuilder(),b=new StringBuilder();
+            String x;
             while((x=r.readLine())!=null)z.append(x).append('\n');
             while((x=e.readLine())!=null)b.append(x).append('\n');
             int n=p.waitFor();
