@@ -3,74 +3,54 @@ package com.erfansst.libtester;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Process;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
+import android.widget.*;
+import java.io.*;
 
-public final class MainActivity extends Activity {
-    private TextView out;
-    private String path;
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        path = "/proc/" + Process.myPid() + "/kossher";
-
-        LinearLayout box = new LinearLayout(this);
+public final class MainActivity extends Activity{
+    TextView out;
+    String path;
+    public void onCreate(Bundle b){
+        super.onCreate(b);
+        path="/proc/"+Process.myPid()+"/kossher";
+        LinearLayout box=new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(20,20,20,20);
-
-        TextView title = new TextView(this);
-        title.setTextSize(15);
-        title.setText("Native /proc tester\n" + path);
-        box.addView(title);
-
-        out = new TextView(this);
+        TextView t=new TextView(this);
+        t.setText("Native /proc tester\n"+path);
+        box.addView(t);
+        out=new TextView(this);
         out.setTextSize(12);
-        out.setPadding(0,20,0,20);
-
-        String[] names = {
-            "libc openat", "libc open", "direct syscall openat",
-            "direct syscall openat2", "fopen", "pread",
-            "mmap", "ioctl", "Run all"
-        };
-        for (String name : names) {
-            Button b = new Button(this);
-            b.setText(name);
-            box.addView(b);
-            if ("Run all".equals(name)) {
-                b.setOnClickListener(v -> run("all"));
-            } else {
-                b.setOnClickListener(v -> run(name));
-            }
+        String[] n={"libc openat","libc open","direct syscall openat","direct syscall openat2","fopen","pread","mmap","ioctl","Root / UID","Run all"};
+        for(String x:n){
+            Button q=new Button(this);
+            q.setText(x);
+            box.addView(q);
+            q.setOnClickListener(v->{
+                if("Run all".equals(x))out.setText(nativeTest(path,"all")+"\n\n"+rootTest());
+                else if("Root / UID".equals(x))out.setText(rootTest());
+                else out.append("\n>>> "+x+"\n"+nativeTest(path,x)+"\n");
+            });
         }
-
         box.addView(out);
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(box);
-        setContentView(scroll);
+        ScrollView s=new ScrollView(this);
+        s.addView(box);
+        setContentView(s);
     }
-
-    private void run(String mode) {
-        try {
-            if (!"all".equals(mode)) {
-                out.append("\n>>> " + mode + "\n");
-                out.append(nativeTest(path, mode) + "\n");
-            } else {
-                out.setText(nativeTest(path, "all"));
-            }
-        } catch (Throwable e) {
-            out.append("\nJAVA ERROR: " + e.getClass().getName() + ": " + String.valueOf(e.getMessage()) + "\n");
-        }
+    String rootTest(){
+        return "=== ROOT / UID ===\n"+cmd("which su")+"\n"+cmd("id")+"\n"+cmd("id -u")+"\nPROCESS_UID="+Process.myUid()+"\nSU_ID="+cmd("su -c id");
     }
-
-    private static native String nativeTest(String path, String mode);
-
-    static {
-        try {
-            System.loadLibrary("tester");
-        } catch (Throwable e) {
-            // Defer the visible error to the first button invocation.
-        }
+    String cmd(String c){
+        try{
+            Process p=Runtime.getRuntime().exec(new String[]{"sh","-c",c});
+            BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
+            BufferedReader e=new BufferedReader(new InputStreamReader(p.getErrorStream()));
+            StringBuilder z=new StringBuilder(),b=new StringBuilder(),x;
+            while((x=r.readLine())!=null)z.append(x).append('\n');
+            while((x=e.readLine())!=null)b.append(x).append('\n');
+            int n=p.waitFor();
+            return c+" [exit="+n+"]\n"+(z.length()>0?z:b).toString().trim();
+        }catch(Throwable e){return c+" [error="+e.getClass().getSimpleName()+"]";}
     }
+    static native String nativeTest(String p,String m);
+    static{try{System.loadLibrary("tester");}catch(Throwable ignored){}}
 }
