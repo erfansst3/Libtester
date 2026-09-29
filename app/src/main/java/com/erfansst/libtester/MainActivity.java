@@ -6,7 +6,7 @@ import android.os.Process;
 import android.widget.*;
 import java.io.*;
 
-public final class MainActivity{
+public final class MainActivity extends Activity{
     TextView out;
     String path;
     String mapsPath;
