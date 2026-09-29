@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <cstdio>
 #include <fcntl.h>
 #include <string>
