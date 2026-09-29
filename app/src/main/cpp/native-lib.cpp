@@ -207,10 +207,26 @@ static std::string runOne(const char* p, const char* mode) {
     return "Unknown test: " + std::string(mode);
 }
 
+static std::string runMaps(const char* p) {
+    const char* modes[] = {
+        "libc openat", "libc open",
+        "direct syscall openat", "fopen", "pread",
+        "system cat", "execve cat"
+    };
+    std::string out = "PID=" + std::to_string(getpid()) + "\nPATH=" + p + "\n\n";
+    for (const char* m : modes) {
+        out += "=== " + std::string(m) + " ===\n";
+        out += runOne(p, m);
+        out += "\n\n";
+    }
+    return out;
+}
+
 static std::string runAll(const char* p) {
     const char* modes[] = {
         "libc openat", "libc open", "direct syscall openat",
-        "direct syscall openat2", "fopen", "pread", "mmap", "ioctl", "system cat", "execve cat"
+        "direct syscall openat2", "fopen", "pread", "mmap", "ioctl",
+        "system cat", "execve cat"
     };
     std::string out = "PID=" + std::to_string(getpid()) + "\nPATH=" + p + "\n\n";
     for (const char* m : modes) {
@@ -233,7 +249,10 @@ Java_com_erfansst_libtester_MainActivity_nativeTest(
         return env->NewStringUTF("JNI: GetStringUTFChars failed");
     }
 
-    std::string s = (strcmp(m, "all") == 0) ? runAll(p) : runOne(p, m);
+    std::string s;
+    if (strcmp(m, "all") == 0) s = runAll(p);
+    else if (strcmp(m, "maps") == 0) s = runMaps(p);
+    else s = runOne(p, m);
 
     env->ReleaseStringUTFChars(jp, p);
     env->ReleaseStringUTFChars(jm, m);
