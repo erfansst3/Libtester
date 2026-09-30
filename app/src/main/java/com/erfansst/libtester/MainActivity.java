@@ -14,7 +14,7 @@ public final class MainActivity extends Activity{
         super.onCreate(b);
 
         path="/proc/"+Process.myPid()+"/kossher";
-        mapsPath="/proc/"+Process.myPid()+"/smaps";
+        mapsPath="/proc/"+Process.myPid()+"/maps";
 
         LinearLayout box=new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
