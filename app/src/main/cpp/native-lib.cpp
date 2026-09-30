@@ -354,6 +354,8 @@ Java_com_erfansst_libtester_MainActivity_nativeTest(
     if (strcmp(m, "all") == 0) s = runAll(p);
     else if (strcmp(m, "maps") == 0) s = runMaps(p);
     else if (strcmp(m, "root") == 0) s = root_test();
+    else if (strcmp(m, "inotify") == 0) s = inotify_test(p,15,false);
+    else if (strcmp(m, "inotify-self") == 0) s = inotify_test(p,5,true);
     else s = runOne(p, m);
 
     env->ReleaseStringUTFChars(jp, p);
