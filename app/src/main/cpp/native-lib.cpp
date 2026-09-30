@@ -218,7 +218,7 @@ static const char* inMask(uint32_t m){
     return s.c_str();
 }
 
-static std::string inotify_test(const char* p,int seconds){
+static std::string inotify_test(const char* p,int seconds,bool selfOpen){
     int fd=inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
     if(fd<0)return "INOTIFY init errno="+std::to_string(errno);
     uint32_t mask=IN_ALL_EVENTS;
@@ -236,11 +236,19 @@ static std::string inotify_test(const char* p,int seconds){
         return out;
     }
     pollfd pf{fd,POLLIN,0};
-    int end=seconds*1000;
+    int end=seconds*1000,waited=0;
+    bool done=false;
     while(end>0){
         int t=std::min(end,500);
         int r=poll(&pf,1,t);
         end-=t;
+        waited+=t;
+        if(selfOpen&&!done&&waited>=500){
+            int x=open(p,O_RDONLY|O_CLOEXEC);
+            if(x>=0)close(x);
+            done=true;
+            out+="SELF_OPEN_DONE\\n";
+        }
         if(r<=0)continue;
         char b[16384];
         ssize_t n=read(fd,b,sizeof(b));
@@ -254,7 +262,7 @@ static std::string inotify_test(const char* p,int seconds){
             off+=sizeof(inotify_event)+e->len;
         }
     }
-    inotify_rm_watch(fd,w1);
+    if(w1>=0)inotify_rm_watch(fd,w1);
     if(w2>=0&&w2!=w1)inotify_rm_watch(fd,w2);
     close(fd);
     out+="INOTIFY_DONE";
