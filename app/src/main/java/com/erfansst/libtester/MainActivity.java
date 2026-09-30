@@ -67,6 +67,25 @@ public final class MainActivity extends Activity{
             addButton(box,"maps "+x,mapsPath,x);
         }
 
+        TextView iTitle=new TextView(this);
+        iTitle.setText("\n=== INOTIFY TESTS (15s) ===");
+        box.addView(iTitle);
+
+        String[] inotifyTests={"mem","maps","smaps","status","kossher","/proc/self"};
+        for(String x:inotifyTests){
+            String p=x.startsWith("/")?x:"/proc/"+Process.myPid()+"/"+x;
+            Button q=new Button(this);
+            q.setText("watch "+p);
+            box.addView(q);
+            q.setOnClickListener(v->{
+                out.setText("Waiting for inotify events...\n"+p+"\n");
+                new Thread(()->{
+                    String r=nativeTest(p,"inotify");
+                    runOnUiThread(()->out.append(r+"\n"));
+                }).start();
+            });
+        }
+
         out=new TextView(this);
         out.setTextSize(12);
         box.addView(out);
