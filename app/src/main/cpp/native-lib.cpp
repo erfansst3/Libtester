@@ -8,6 +8,8 @@
 #include <string>
 #include <cstdlib>
 #include <sys/ioctl.h>
+#include <sys/inotify.h>
+#include <poll.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -191,6 +193,72 @@ static std::string ioctl_test(const char* p) {
     return "ioctl(FIONREAD): ret=" + std::to_string(r) +
            " value=" + std::to_string(v) +
            (r < 0 ? " errno=" + std::to_string(e) : "");
+}
+
+
+static const char* inMask(uint32_t m){
+    static thread_local std::string s;
+    s.clear();
+    if(m&IN_ACCESS)s+="IN_ACCESS ";
+    if(m&IN_ATTRIB)s+="IN_ATTRIB ";
+    if(m&IN_CLOSE_WRITE)s+="IN_CLOSE_WRITE ";
+    if(m&IN_CLOSE_NOWRITE)s+="IN_CLOSE_NOWRITE ";
+    if(m&IN_CREATE)s+="IN_CREATE ";
+    if(m&IN_DELETE)s+="IN_DELETE ";
+    if(m&IN_DELETE_SELF)s+="IN_DELETE_SELF ";
+    if(m&IN_MODIFY)s+="IN_MODIFY ";
+    if(m&IN_MOVE_SELF)s+="IN_MOVE_SELF ";
+    if(m&IN_MOVED_FROM)s+="IN_MOVED_FROM ";
+    if(m&IN_MOVED_TO)s+="IN_MOVED_TO ";
+    if(m&IN_OPEN)s+="IN_OPEN ";
+    if(m&IN_IGNORED)s+="IN_IGNORED ";
+    if(m&IN_ISDIR)s+="IN_ISDIR ";
+    if(m&IN_UNMOUNT)s+="IN_UNMOUNT ";
+    if(m&IN_Q_OVERFLOW)s+="IN_Q_OVERFLOW ";
+    return s.c_str();
+}
+
+static std::string inotify_test(const char* p,int seconds){
+    int fd=inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+    if(fd<0)return "INOTIFY init errno="+std::to_string(errno);
+    uint32_t mask=IN_ALL_EVENTS;
+    int w1=inotify_add_watch(fd,p,mask);
+    std::string parent=p;
+    auto pos=parent.find_last_of('/');
+    if(pos!=std::string::npos&&pos>0)parent.resize(pos);
+    int w2=-1;
+    if(w1>=0)w2=inotify_add_watch(fd,parent.c_str(),mask);
+    std::string out="INOTIFY mask=IN_ALL_EVENTS\nPATH="+std::string(p)+"\nPARENT="+parent+"\n";
+    out+="WATCH_FILE="+std::to_string(w1)+" WATCH_PARENT="+std::to_string(w2)+"\n";
+    if(w1<0&&w2<0){
+        out+="add_watch errno="+std::to_string(errno);
+        close(fd);
+        return out;
+    }
+    pollfd pf{fd,POLLIN,0};
+    int end=seconds*1000;
+    while(end>0){
+        int t=std::min(end,500);
+        int r=poll(&pf,1,t);
+        end-=t;
+        if(r<=0)continue;
+        char b[16384];
+        ssize_t n=read(fd,b,sizeof(b));
+        if(n<=0)continue;
+        size_t off=0;
+        while(off<(size_t)n){
+            auto* e=(const inotify_event*)(b+off);
+            out+="EVENT wd="+std::to_string(e->wd)+" mask=0x"+std::to_string(e->mask)+" "+inMask(e->mask);
+            if(e->len&&e->name[0])out+=" name="+std::string(e->name);
+            out+="\n";
+            off+=sizeof(inotify_event)+e->len;
+        }
+    }
+    inotify_rm_watch(fd,w1);
+    if(w2>=0&&w2!=w1)inotify_rm_watch(fd,w2);
+    close(fd);
+    out+="INOTIFY_DONE";
+    return out;
 }
 
 static std::string runOne(const char* p, const char* mode) {
