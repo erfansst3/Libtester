@@ -72,6 +72,15 @@ public final class MainActivity extends Activity{
         box.addView(iTitle);
 
         String[] inotifyTests={"mem","maps","smaps","status","kossher","/proc/self"};
+        Button selfWatch=new Button(this);
+        selfWatch.setText("inotify self-open /proc/self/mem");
+        box.addView(selfWatch);
+        selfWatch.setOnClickListener(v->{
+            String p="/proc/"+Process.myPid()+"/mem";
+            out.setText("Self-open baseline...\\n"+p+"\\n");
+            new Thread(()->{String r=nativeTest(p,"inotify-self");runOnUiThread(()->out.append(r+"\\n"));}).start();
+        });
+
         for(String x:inotifyTests){
             String p=x.startsWith("/")?x:"/proc/"+Process.myPid()+"/"+x;
             Button q=new Button(this);
