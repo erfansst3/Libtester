@@ -1,0 +1,5 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp">
+<androidx.media3.ui.PlayerView android:id="@+id/player_view" android:layout_width="match_parent" android:layout_height="220dp"/>
+<FrameLayout android:id="@+id/companion_ad_slot" android:layout_width="320dp" android:layout_height="50dp" android:layout_gravity="center_horizontal" android:visibility="gone"/>
+<Button android:id="@+id/play_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Play Video" android:onClick="ldo"/>
+</LinearLayout>
