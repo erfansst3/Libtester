@@ -1,130 +1,81 @@
 package com.erfansst.libtester;
-
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Process;
-import android.widget.*;
+import android.net.Uri;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.Toast;
+import androidx.annotation.OptIn;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.ima.ImaAdsLoader;
+import androidx.media3.ui.PlayerView;
+import com.adivery.sdk.Adivery;
+import com.google.ads.interactivemedia.v3.api.AdEvent;
+import com.google.ads.interactivemedia.v3.api.CompanionAdSlot;
+import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
+import java.util.ArrayList;
+import java.util.List;
 
-public final class MainActivity extends Activity{
-    TextView out;
-    String path;
-    String mapsPath;
+public class MainActivity extends Activity {
+    private ExoPlayer player;
+    private ImaAdsLoader adsLoader;
+    private PlayerView playerView;
+    private FrameLayout adSlotContainer;
+    private String vastUrl;
+    private final String contentUri="https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4";
 
-    public void onCreate(Bundle b){
-        super.onCreate(b);
-
-        path="/proc/"+Process.myPid()+"/kossher";
-        mapsPath="/proc/"+Process.myPid()+"/maps";
-
-        LinearLayout box=new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(20,20,20,20);
-
-        TextView t=new TextView(this);
-        t.setText("Native /proc tester\nKOSSHER: "+path+"\nMAPS: "+mapsPath);
-        box.addView(t);
-
-        TextView kTitle=new TextView(this);
-        kTitle.setText("\n=== KOSSHER TESTS ===");
-        box.addView(kTitle);
-
-        String[] kossher={
-            "libc openat",
-            "libc open",
-            "direct syscall openat",
-            "direct syscall openat2",
-            "fopen",
-            "pread",
-            "mmap",
-            "ioctl",
-            "system cat",
-            "execve cat",
-            "Root / UID",
-            "Run all"
-        };
-
-        for(String x:kossher){
-            addButton(box,x,path,x);
-        }
-
-        TextView mTitle=new TextView(this);
-        mTitle.setText("\n=== MAPS TESTS ===");
-        box.addView(mTitle);
-
-        String[] mapsTests={
-            "libc openat",
-            "libc open",
-            "direct syscall openat",
-            "fopen",
-            "pread",
-            "mmap",
-            "ioctl",
-            "system cat",
-            "execve cat"
-        };
-
-        for(String x:mapsTests){
-            addButton(box,"maps "+x,mapsPath,x);
-        }
-
-        TextView iTitle=new TextView(this);
-        iTitle.setText("\n=== INOTIFY TESTS (15s) ===");
-        box.addView(iTitle);
-
-        String[] inotifyTests={"mem","maps","smaps","status","kossher","/proc/self"};
-        Button selfWatch=new Button(this);
-        selfWatch.setText("inotify self-open /proc/self/mem");
-        box.addView(selfWatch);
-        selfWatch.setOnClickListener(v->{
-            String p="/proc/"+Process.myPid()+"/mem";
-            out.setText("Self-open baseline...\\n"+p+"\\n");
-            new Thread(()->{String r=nativeTest(p,"inotify-self");runOnUiThread(()->out.append(r+"\\n"));}).start();
-        });
-
-        for(String x:inotifyTests){
-            String p=x.startsWith("/")?x:"/proc/"+Process.myPid()+"/"+x;
-            Button q=new Button(this);
-            q.setText("watch "+p);
-            box.addView(q);
-            q.setOnClickListener(v->{
-                out.setText("Waiting for inotify events...\n"+p+"\n");
-                new Thread(()->{
-                    String r=nativeTest(p,"inotify");
-                    runOnUiThread(()->out.append(r+"\n"));
-                }).start();
-            });
-        }
-
-        out=new TextView(this);
-        out.setTextSize(12);
-        box.addView(out);
-
-        ScrollView s=new ScrollView(this);
-        s.addView(box);
-        setContentView(s);
+    @Override
+    protected void onCreate(Bundle savedInstanceState){
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        Adivery.configure(getApplication(),"a2e19f45-f3d5-4abb-800b-3a02ae635736");
+        vastUrl=Adivery.getVastUrl("14d0a684-9c7e-48d6-a72e-6cfde3a266fa");
+        playerView=findViewById(R.id.player_view);
+        adSlotContainer=findViewById(R.id.companion_ad_slot);
     }
 
-    void addButton(LinearLayout box,String label,String testPath,String mode){
-        Button q=new Button(this);
-        q.setText(label);
-        box.addView(q);
-
-        q.setOnClickListener(v->{
-            if("Run all".equals(mode)){
-                out.setText(nativeTest(testPath,"all")+"\n\n"+nativeTest(testPath,"root"));
-            }else if("Root / UID".equals(mode)){
-                out.setText(nativeTest(testPath,"root"));
-            }else{
-                out.append("\n>>> "+label+"\n"+nativeTest(testPath,mode)+"\n");
-            }
-        });
+    @OptIn(markerClass=UnstableApi.class)
+    public void ldo(View view){
+        if(vastUrl==null||vastUrl.isEmpty()){
+            Toast.makeText(this,"VAST URL is unavailable",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if(player!=null)releasePlayer();
+        CompanionAdSlot slot=ImaSdkFactory.getInstance().createCompanionAdSlot();
+        slot.setContainer(adSlotContainer);
+        slot.setSize(320,50);
+        List<CompanionAdSlot> slots=new ArrayList<>();
+        slots.add(slot);
+        adsLoader=new ImaAdsLoader.Builder(this)
+            .setCompanionAdSlots(slots)
+            .setAdEventListener(event->{
+                AdEvent.AdEventType type=event.getType();
+                if(type==AdEvent.AdEventType.LOADED)adSlotContainer.setVisibility(View.VISIBLE);
+                if(type==AdEvent.AdEventType.SKIPPED||type==AdEvent.AdEventType.COMPLETED||type==AdEvent.AdEventType.ALL_ADS_COMPLETED)adSlotContainer.setVisibility(View.GONE);
+            }).build();
+        DefaultMediaSourceFactory factory=new DefaultMediaSourceFactory(this).setLocalAdInsertionComponents(unused->adsLoader,playerView);
+        player=new ExoPlayer.Builder(this).setMediaSourceFactory(factory).build();
+        playerView.setPlayer(player);
+        adsLoader.setPlayer(player);
+        MediaItem item=new MediaItem.Builder().setUri(Uri.parse(contentUri)).setAdsConfiguration(new MediaItem.AdsConfiguration.Builder(Uri.parse(vastUrl)).build()).build();
+        player.setMediaItem(item);
+        player.prepare();
+        player.play();
     }
 
-    static native String nativeTest(String p,String m);
-
-    static{
-        try{
-            System.loadLibrary("tester");
-        }catch(Throwable ignored){}
+    private void releasePlayer(){
+        if(adsLoader!=null){adsLoader.setPlayer(null);adsLoader.release();adsLoader=null;}
+        if(player!=null){player.release();player=null;}
+        playerView.setPlayer(null);
+        adSlotContainer.setVisibility(View.GONE);
     }
+
+    @Override
+    protected void onPause(){super.onPause();if(player!=null)player.pause();}
+
+    @Override
+    protected void onDestroy(){releasePlayer();super.onDestroy();}
 }
